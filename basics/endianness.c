@@ -6,7 +6,8 @@ void show_mem_rep(char *start, int n)
   int i;
   for (i = 0; i < n; i++)
   {
-    printf("Address of start[i]: %p\n", &start[i]);
+    /* higher addresses will correspond with most significan digits in little endian */
+    //printf("Address of start[i]: %p\n", &start[i]);
     printf(" %.2x\n", start[i]);
   }
 
