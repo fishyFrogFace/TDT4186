@@ -5,8 +5,11 @@ int d, counter;
 
 unsigned int rec(unsigned int number)
 {
-  if (counter % 10000 == 0)
+  char array[1000];
+  if (counter % 100000 == 0)
     printf("%i\n", counter);
+  if (counter % 1000000000 == 0)
+    printf("%c", array[999]);
   counter++;
   return rec(counter);
 }
