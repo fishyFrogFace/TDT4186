@@ -16,8 +16,7 @@ int get_user_input(void)
 {
   printf("\nEnter a delay in seconds: ");
   int seconds;
-  int thing = scanf("%d", &seconds);
-  printf("thing: %d", thing);
+  scanf("%d", &seconds);
   return seconds;
 }
 
