@@ -6,12 +6,17 @@
 #include <errno.h>
 #include <limits.h>
 
+/* assuming we don't need to do error handling of
+* IO operations exit(), printf() and sleep() 
+* since their man pages do not contain error catching information
+* of the type described in the assignment */
+
 void timer(int seconds)
 {
   sleep(seconds);
   printf("\a");
   printf("\nRING! child process %d rang after %d seconds\nEnter a delay in seconds: ", getpid(), seconds);
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 int get_user_input(void)
@@ -20,8 +25,10 @@ int get_user_input(void)
   errno = 0;
   long seconds;
 
-  // write programs to handle text streams,
-  // because that is an universal interface
+  /* "write programs to handle text streams,
+  * because that is an universal interface" 
+  * switched to handle strings here, to make error
+  * handling of scanf a lot easier to deal with */
   char *user_input;
   scanf("%s", user_input);
   seconds = strtol(user_input, NULL, 10);
@@ -31,6 +38,8 @@ int get_user_input(void)
     perror("strtol");
     exit(EXIT_FAILURE);
   }
+  // we don't support timers with negative values
+  // and you can't set a timer to 0 seconds
   else if (seconds <= 0)
   {
     printf("Invalid input\n");
@@ -54,7 +63,9 @@ int main(void)
       printf("\nChild process %d terminated\n", terminated);
     }
 
-    // check if there was an error when calling waitpid
+    /* check if there was an error when calling waitpid
+    * and that this error does not mean that there
+    * simply was no child to wait for */
     if (terminated == -1 && errno != ECHILD)
     {
       perror("waitpid");
