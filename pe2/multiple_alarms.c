@@ -7,8 +7,7 @@
 void timer(int seconds)
 {
   sleep(seconds);
-  printf("\a");
-  printf("\nRING! child process %d rang after %d seconds\n", getpid(), seconds);
+  printf("\nRING! child process %d rang after %d seconds\nEnter a delay in seconds: ", getpid(), seconds);
   exit(0);
 }
 
@@ -26,9 +25,6 @@ int main(void)
   while (1)
   {
     int seconds = get_user_input();
-    int terminated = waitpid(-1, &wstatus, WNOHANG);
-    if (terminated != 0 && terminated != -1)
-      printf("\nChild process %d terminated", terminated);
     int cpid = fork();
     if (cpid == 0)
     {
