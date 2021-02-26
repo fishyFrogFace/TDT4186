@@ -7,8 +7,9 @@
 void timer(int seconds)
 {
   sleep(seconds);
-  printf("\a");
-  printf("\nRING! child process %d rang after %d seconds\n", getpid(), seconds);
+  /* in case an alarm rings, we want to show the prompt again
+  * in case the use does not understand that a new alarm can still be set */
+  printf("\nRING! child process %d rang after %d seconds\nEnter a delay in seconds: ", getpid(), seconds);
   exit(0);
 }
 
@@ -16,8 +17,7 @@ int get_user_input(void)
 {
   printf("\nEnter a delay in seconds: ");
   int seconds;
-  int thing = scanf("%d", &seconds);
-  printf("thing: %d", thing);
+  scanf("%d", &seconds);
   return seconds;
 }
 
@@ -27,14 +27,13 @@ int main(void)
   while (1)
   {
     int seconds = get_user_input();
-    int terminated = waitpid(-1, &wstatus, WNOHANG);
-    if (terminated != 0 && terminated != -1)
-      printf("\nChild process %d terminated", terminated);
     int cpid = fork();
+    // if we are in child, set a timer
     if (cpid == 0)
     {
       timer(seconds);
     }
+    // if we are in parent, print pid of child
     else
     {
       printf("\nStarted child process with pid %d\n", cpid);
