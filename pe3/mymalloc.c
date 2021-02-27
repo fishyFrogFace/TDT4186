@@ -32,6 +32,7 @@ void mymalloc_init()
   // for the first (and at the moment only) free block
   struct mem_control_block *m = (struct mem_control_block *)managed_memory_start;
   m->size = MEM_SIZE - sizeof(struct mem_control_block);
+  printf("MEM_SIZE: %d\n", MEM_SIZE);
 
   // no next free block
   m->next = (struct mem_control_block *)0;
@@ -50,18 +51,20 @@ void *mymalloc(long numbytes)
     mymalloc_init();
   }
 
-  if (numbytes == 0)
+  if (numbytes == 0 || numbytes > MEM_SIZE - 2)
   {
     return NULL;
-    // check if longer than a short here
   }
   else
   {
     long size_of_new_block = numbytes + sizeof(short);
+    unsigned short *block_size = managed_memory_start;
+    *block_size = size_of_new_block;
 
-    struct mem_control_block *m = (struct mem_control_block *)managed_memory_start + size_of_new_block;
+    struct mem_control_block *m = managed_memory_start + size_of_new_block;
     m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
     free_list_start = m;
+
     return (managed_memory_start + sizeof(short));
   }
   /* add your code here! */
@@ -133,7 +136,39 @@ int main(int argc, char **argv)
 
   printf("When one block is allocated, the free block struct is located after the allocated block: ");
 
-  if (free_list_start == (struct mem_control_block *)managed_memory_start + sizeof(short) + numbytes)
+  if (free_list_start == managed_memory_start + sizeof(short) + numbytes)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("Sets the first 2 bytes of the allocated block to the size of the block: ");
+
+  unsigned short *block_size = managed_memory_start;
+  if (*block_size == numbytes + 2)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("Returns NULL if it receives a long that is larger than max short - 2 bytes: ");
+
+  numbytes = 64 * 1024 - 1;
+  result = mymalloc(numbytes);
+
+  if (result == NULL)
   {
     printf("YES\n");
   }
