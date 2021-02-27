@@ -68,30 +68,47 @@ int main(int argc, char **argv)
   /* Allocation tests */
   void *result = mymalloc(0);
 
+  printf("Returns NULL if asked to allocate 0 bytes: ");
   if (result == NULL)
   {
-    printf("Returns NULL if asked to allocate 0 bytes\n");
+    printf("YES\n");
   }
   else
   {
-    printf("Does not return NULL if asked to allocate 0 bytes\n");
-    exit(EXIT_FAILURE);
-  }
-
-  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block))
-  {
-    printf("When nothing is allocated, the first mem_control_block has length 64*1024 minus the first mem_control_block\n");
-  }
-  else
-  {
-    printf("When nothing is allocated, the first mem_control_block does NOT have length 64*1024 64*1024 minus the first mem_control_block\n");
+    printf("NO\n");
     exit(EXIT_FAILURE);
   }
 
   /* ------------------------------------------ */
 
+  printf("When nothing is allocated, the first mem_control_block has length 64*1024 minus the first mem_control_block: ");
+  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block))
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("When one block is allocated, our free block spans the rest of the memory: ");
+
+  mymalloc(40);
+
+  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block))
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
   /* allocation
-  * 1. when nothing is allocated, the first mem_control_block has length 64*1024
   * 2. can allocate two blocks (with no deallocation in between)
   * 3. allocate something in first large enough space |000000|1111|000..
   * 4. don't allocate something in first free space when first free space is not large enough |00|1111|000...
