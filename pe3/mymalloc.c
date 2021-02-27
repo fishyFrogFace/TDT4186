@@ -163,6 +163,12 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
 
+  /* A short is big enough to store the size of our memory,
+  * so it makes sense to use a short to store the length of a block
+  * to save space.
+  * That means we have to check if the long we send in is too big to
+  * fit in a short or too big to allocate, even if we used all available
+  * memory */
   printf("Returns NULL if it receives a long that is larger than max short - 2 bytes: ");
 
   numbytes = 64 * 1024 - 1;
