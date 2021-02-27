@@ -83,20 +83,7 @@ void *mymalloc(long numbytes)
   {
     return NULL;
   }
-  // if there are no allocated blocks already
-  else if (first_suitable == managed_memory_start)
-  {
-    unsigned short *block_size = managed_memory_start;
-    *block_size = size_of_new_block;
-
-    struct mem_control_block *m = managed_memory_start + size_of_new_block;
-    m->size = MEM_SIZE - size_of_new_block;
-    free_list_start = m;
-
-    return (managed_memory_start + sizeof(short));
-  }
   //if the first suitable free block is the first free block
-  // CURRENTLY NOT REALLY IMPLEMENTED
   else if (first_suitable == free_list_start)
   {
     // if the suitable block is larger than the block we want
@@ -105,8 +92,15 @@ void *mymalloc(long numbytes)
       // there is room for a struct in the remaining free block
       if (free_list_start->size - size_of_new_block > 16)
       {
-        printf("NOT IMPLEMENTED\n");
-        exit(EXIT_FAILURE);
+        struct mem_control_block *m = (void *)free_list_start + size_of_new_block;
+        m->size = free_list_start->size - size_of_new_block;
+
+        unsigned short *block_size = (unsigned short *)free_list_start;
+        *block_size = size_of_new_block;
+
+        free_list_start = m;
+
+        return block_size + 1;
       }
       /* If there is no room for a struct in the remaining free block
       * we add the extra space to the block we are allocating.
@@ -135,7 +129,7 @@ void *mymalloc(long numbytes)
   // all other possibilities
   else
   {
-    printf("Not implemented");
+    printf("NOT IMPLEMENTED");
     return NULL;
   }
 
@@ -207,6 +201,8 @@ int main(int argc, char **argv)
   else
   {
     printf("NO\n");
+    printf("managed_memory_start + sizeof(short): %p\n", managed_memory_start + sizeof(short));
+    printf("result: %p\n", result);
     exit(EXIT_FAILURE);
   }
 
@@ -221,6 +217,8 @@ int main(int argc, char **argv)
   else
   {
     printf("NO\n");
+    printf("managed_memory_start + sizeof(short) + numbytes: %p\n", managed_memory_start + sizeof(short) + numbytes);
+    printf("free_list_start: %p\n", free_list_start);
     exit(EXIT_FAILURE);
   }
 
@@ -354,10 +352,8 @@ int main(int argc, char **argv)
   /* ------------------------------------------ */
 
   /* allocation
-  * 2. can allocate two blocks (with no deallocation in between)
-  * 3. allocate something in first large enough space |000000|1111|000..
-  * 4. don't allocate something in first free space when first free space is not large enough |00|1111|000...
-  * 5. if asked for more space than we have in any free space, return something clever
+  * 4. don't allocate something in first free space when first free space is 
+  * not large enough |00|1111|000... (with multiple free spaces)
   * 
   * deallocation
   * 1. 1 thing in beginning that should be deallocated
