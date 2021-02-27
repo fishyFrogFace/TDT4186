@@ -28,13 +28,15 @@ void mymalloc_init()
   // our memory starts at the start of the heap array
   managed_memory_start = &heap;
 
-  // allocate and initialize our memory control block
-  // for the first (and at the moment only) free block
+  /* allocate and initialize our memory control block
+  * for the first (and at the moment only) free block
+  * edit: size includes the 16 bytes of the struct */
   struct mem_control_block *m = (struct mem_control_block *)managed_memory_start;
-  m->size = MEM_SIZE - sizeof(struct mem_control_block);
+  m->size = MEM_SIZE;
 
   /* no next free block
-  * edited this because we felt that NULL was more readable */
+  * edit: we felt that NULL was more readable
+  * than (struct mem_control_block *)0 */
   m->next = NULL;
 
   // initialize the start of the free list
@@ -50,7 +52,7 @@ void *find_suitable_block(unsigned short numbytes, struct mem_control_block *cur
   {
     return NULL;
   }
-  else if (current->size + 16 >= numbytes + sizeof(short))
+  else if (current->size >= numbytes + sizeof(short))
   {
     return current;
   }
@@ -88,7 +90,7 @@ void *mymalloc(long numbytes)
     *block_size = size_of_new_block;
 
     struct mem_control_block *m = managed_memory_start + size_of_new_block;
-    m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
+    m->size = MEM_SIZE - size_of_new_block;
     free_list_start = m;
 
     return (managed_memory_start + sizeof(short));
@@ -99,7 +101,7 @@ void *mymalloc(long numbytes)
   {
     // if the suitable block is larger than the block we want
     // what do we do if a free block is too small to hold a struct?
-    if (free_list_start->size + 16 > size_of_new_block)
+    if (free_list_start->size > size_of_new_block)
     {
       printf("NOT IMPLEMENTED\n");
       exit(EXIT_FAILURE);
@@ -151,7 +153,7 @@ int main(int argc, char **argv)
   /* ------------------------------------------ */
 
   printf("When nothing is allocated, the first mem_control_block has length 64*1024 minus the first mem_control_block: ");
-  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block))
+  if (free_list_start->size == MEM_SIZE)
   {
     printf("YES\n");
   }
@@ -168,7 +170,7 @@ int main(int argc, char **argv)
   long numbytes = 40;
   result = mymalloc(numbytes);
 
-  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block) - numbytes - sizeof(short))
+  if (free_list_start->size == MEM_SIZE - numbytes - sizeof(short))
   {
     printf("YES\n");
   }
