@@ -100,11 +100,27 @@ void *mymalloc(long numbytes)
   else if (first_suitable == free_list_start)
   {
     // if the suitable block is larger than the block we want
-    // what do we do if a free block is too small to hold a struct?
     if (free_list_start->size > size_of_new_block)
     {
-      printf("NOT IMPLEMENTED\n");
-      exit(EXIT_FAILURE);
+      // there is room for a struct in the remaining free block
+      if (free_list_start->size - size_of_new_block > 16)
+      {
+        printf("NOT IMPLEMENTED\n");
+        exit(EXIT_FAILURE);
+      }
+      /* If there is no room for a struct in the remaining free block
+      * we add the extra space to the block we are allocating.
+      * This way we can still keep track of it without creating
+      * a new structure to keep track of small deallocated pieces. */
+      else
+      {
+        unsigned short *block_size = (unsigned short *)free_list_start;
+        unsigned short size_of_free_block = free_list_start->size;
+        free_list_start = free_list_start->next;
+        *block_size = size_of_free_block;
+
+        return block_size + 1;
+      }
     }
     // if the suitable block is equal to the block we want
     else
@@ -180,6 +196,8 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
+  /* ------------------------------------------ */
+
   printf("When one block is allocated, mymalloc returns managed_memory_start + sizeof(short): ");
 
   if (result == managed_memory_start + sizeof(short))
@@ -191,6 +209,8 @@ int main(int argc, char **argv)
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
+
+  /* ------------------------------------------ */
 
   printf("When one block is allocated, the free block struct is located after the allocated block: ");
 
@@ -243,6 +263,7 @@ int main(int argc, char **argv)
   }
 
   /* ------------------------------------------ */
+
   printf("Can allocate a block that takes all remaining memory: ");
 
   long numbytes3 = MEM_SIZE - numbytes - 2 * sizeof(short);
@@ -260,10 +281,31 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
 
+  printf("Can allocate a block that creates a free block smaller than 16 bytes: ");
+
+  mymalloc_init();
+  mymalloc(numbytes);
+  long numbytes4 = MEM_SIZE - numbytes - 2 * sizeof(short) - 15;
+  result = mymalloc(numbytes4);
+
+  if (result == managed_memory_start + 2 * sizeof(short) + numbytes && free_list_start == NULL)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
   printf("Can allocate a second block, without overwriting the first block: ");
 
-  long numbytes4 = 64;
-  result = mymalloc(numbytes4);
+  mymalloc_init();
+  mymalloc(numbytes);
+  long numbytes5 = 64;
+  result = mymalloc(numbytes5);
 
   if (result == managed_memory_start + sizeof(short) * 2 + numbytes)
   {
@@ -295,8 +337,8 @@ int main(int argc, char **argv)
   printf("Returns NULL if there are no suitable blocks: ");
 
   mymalloc_init(); // reset state
-  long numbytes5 = 64 * 1024 - 50;
-  mymalloc(numbytes5);
+  long numbytes6 = 64 * 1024 - 50;
+  mymalloc(numbytes6);
   result = find_suitable_block(100, free_list_start);
 
   if (result == NULL)
