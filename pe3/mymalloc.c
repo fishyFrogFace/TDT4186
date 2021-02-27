@@ -66,20 +66,48 @@ void *mymalloc(long numbytes)
     mymalloc_init();
   }
 
+  // determine how much space we need and if we have this space available
+  long size_of_new_block = numbytes + sizeof(short);
   void *first_suitable = find_suitable_block(numbytes, free_list_start);
+
+  /* if no space is requested or we don't have this amount of space
+  * then return NULL */
   if (numbytes == 0 || first_suitable == NULL)
   {
     return NULL;
   }
-  long size_of_new_block = numbytes + sizeof(short);
-  unsigned short *block_size = managed_memory_start;
-  *block_size = size_of_new_block;
+  // if there are no allocated blocks already
+  else if (first_suitable == managed_memory_start)
+  {
+    unsigned short *block_size = managed_memory_start;
+    *block_size = size_of_new_block;
 
-  struct mem_control_block *m = managed_memory_start + size_of_new_block;
-  m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
-  free_list_start = m;
+    struct mem_control_block *m = managed_memory_start + size_of_new_block;
+    m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
+    free_list_start = m;
 
-  return (managed_memory_start + sizeof(short));
+    return (managed_memory_start + sizeof(short));
+  }
+  //if the first suitable free block is the first free block
+  // CURRENTLY NOT REALLY IMPLEMENTED
+  else if (first_suitable == free_list_start)
+  {
+    unsigned short *block_size = free_list_start;
+    *block_size = size_of_new_block;
+
+    struct mem_control_block *m = managed_memory_start + size_of_new_block;
+    m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
+    free_list_start = m;
+
+    return (managed_memory_start + sizeof(short));
+  }
+  // all other possibilities
+  else
+  {
+    printf("Not implemented");
+    return NULL;
+  }
+
   /* add your code here! */
 }
 
