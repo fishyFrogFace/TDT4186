@@ -32,7 +32,6 @@ void mymalloc_init()
   // for the first (and at the moment only) free block
   struct mem_control_block *m = (struct mem_control_block *)managed_memory_start;
   m->size = MEM_SIZE - sizeof(struct mem_control_block);
-  printf("MEM_SIZE: %d\n", MEM_SIZE);
 
   // no next free block
   m->next = (struct mem_control_block *)0;
@@ -44,6 +43,22 @@ void mymalloc_init()
   has_initialized = 1;
 }
 
+void *find_suitable_block(unsigned short numbytes, struct mem_control_block *current)
+{
+  if (current->size >= numbytes + sizeof(short))
+  {
+    return current;
+  }
+  else if (current->next == 0)
+  {
+    return NULL;
+  }
+  else
+  {
+    return find_suitable_block(numbytes, current);
+  }
+}
+
 void *mymalloc(long numbytes)
 {
   if (has_initialized == 0)
@@ -51,22 +66,20 @@ void *mymalloc(long numbytes)
     mymalloc_init();
   }
 
-  if (numbytes == 0 || numbytes > MEM_SIZE - 2)
+  void *first_suitable = find_suitable_block(numbytes, free_list_start);
+  if (numbytes == 0 || first_suitable == NULL)
   {
     return NULL;
   }
-  else
-  {
-    long size_of_new_block = numbytes + sizeof(short);
-    unsigned short *block_size = managed_memory_start;
-    *block_size = size_of_new_block;
+  long size_of_new_block = numbytes + sizeof(short);
+  unsigned short *block_size = managed_memory_start;
+  *block_size = size_of_new_block;
 
-    struct mem_control_block *m = managed_memory_start + size_of_new_block;
-    m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
-    free_list_start = m;
+  struct mem_control_block *m = managed_memory_start + size_of_new_block;
+  m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
+  free_list_start = m;
 
-    return (managed_memory_start + sizeof(short));
-  }
+  return (managed_memory_start + sizeof(short));
   /* add your code here! */
 }
 
@@ -78,7 +91,9 @@ void myfree(void *firstbyte)
 
 int main(int argc, char **argv)
 {
-  /* Allocation tests */
+  /* Simple allocation tests */
+  printf("SIMPLE ALLOCATION:\n");
+
   void *result = mymalloc(0);
 
   printf("Returns NULL if asked to allocate 0 bytes: ");
@@ -110,7 +125,7 @@ int main(int argc, char **argv)
   printf("When one block is allocated, our free block spans the rest of the memory: ");
 
   long numbytes = 40;
-  result = mymalloc(40);
+  result = mymalloc(numbytes);
 
   if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block) - numbytes - sizeof(short))
   {
@@ -171,8 +186,8 @@ int main(int argc, char **argv)
   * memory */
   printf("Returns NULL if it receives a long that is larger than max short - 2 bytes: ");
 
-  numbytes = 64 * 1024 - 1;
-  result = mymalloc(numbytes);
+  long numbytes2 = 64 * 1024 - 1;
+  result = mymalloc(numbytes2);
 
   if (result == NULL)
   {
@@ -183,6 +198,57 @@ int main(int argc, char **argv)
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
+
+  printf("Can allocate a second block, without overwriting the first block: ");
+
+  long numbytes4 = 64;
+  result = mymalloc(numbytes4);
+
+  if (result == managed_memory_start + sizeof(short) * 2 + numbytes)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+  /* Tests for find_suitable_block */
+  printf("\nFIND SUITABLE BLOCK:\n");
+
+  printf("Returns first suitable block when that block is passed to the function: ");
+
+  result = find_suitable_block(40, free_list_start);
+  if (result == free_list_start)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("Returns NULL if there are no suitable blocks: ");
+
+  mymalloc_init(); // reset state
+  long numbytes3 = 64 * 1024 - 50;
+  mymalloc(numbytes3);
+  result = find_suitable_block(100, free_list_start);
+
+  if (result == NULL)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
 
   /* allocation
   * 2. can allocate two blocks (with no deallocation in between)
