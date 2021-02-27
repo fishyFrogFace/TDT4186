@@ -53,6 +53,16 @@ void *mymalloc(long numbytes)
   if (numbytes == 0)
   {
     return NULL;
+    // check if longer than a short here
+  }
+  else
+  {
+    long size_of_new_block = numbytes + sizeof(short);
+
+    struct mem_control_block *m = (struct mem_control_block *)managed_memory_start + size_of_new_block;
+    m->size = MEM_SIZE - sizeof(struct mem_control_block) - size_of_new_block;
+    free_list_start = m;
+    return (managed_memory_start + sizeof(short));
   }
   /* add your code here! */
 }
@@ -96,9 +106,34 @@ int main(int argc, char **argv)
 
   printf("When one block is allocated, our free block spans the rest of the memory: ");
 
-  mymalloc(40);
+  long numbytes = 40;
+  result = mymalloc(40);
 
-  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block))
+  if (free_list_start->size == MEM_SIZE - sizeof(struct mem_control_block) - numbytes - sizeof(short))
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("When one block is allocated, mymalloc returns managed_memory_start + sizeof(short): ");
+
+  if (result == managed_memory_start + sizeof(short))
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("When one block is allocated, the free block struct is located after the allocated block: ");
+
+  if (free_list_start == (struct mem_control_block *)managed_memory_start + sizeof(short) + numbytes)
   {
     printf("YES\n");
   }
