@@ -136,10 +136,51 @@ void *mymalloc(long numbytes)
   /* add your code here! */
 }
 
+struct mem_control_block *findPrevious(void *firstbyte, struct mem_control_block *current)
+{
+  // if there are no free blocks, return NULL
+  if (current == NULL)
+  {
+    return NULL;
+  }
+  // if current is the previous free block, return it
+  else if ((void *)current < firstbyte && (current->next == NULL || firstbyte < (void *)current->next))
+  {
+    return current;
+  }
+  // if there are many preceeding free blocks, keep iterating
+  else
+  {
+    return findPrevious(firstbyte, current->next);
+  }
+}
+
+struct mem_control_block *findNext(void *firstbyte, struct mem_control_block *current)
+{
+  // if there are no free blocks, return NULL
+  if (current == NULL)
+  {
+    return NULL;
+  }
+  // if current is the next free block, return it
+  else if (firstbyte < (void *)current)
+  {
+    return current;
+  }
+  // if we haven't found it yet, keep iterating
+  else
+  {
+    return findNext(firstbyte, current->next);
+  }
+}
+
 void myfree(void *firstbyte)
 {
-
-  /* add your code here! */
+  // read short and find size of our block
+  // find prev free block
+  // find next free block and merge with the new free block if adjacent
+  // point prev free block to new free block
+  // point new free block next to either: next free block next (if adjacent) or prev free block next
 }
 
 int main(int argc, char **argv)
@@ -340,6 +381,24 @@ int main(int argc, char **argv)
   result = find_suitable_block(100, free_list_start);
 
   if (result == NULL)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Returns NULL if there are no suitable blocksSimple deallocation tests */
+  printf("\nSIMPLE DEALLOCATION:\n");
+
+  printf("Can deallocate the last allocated block, when the only free block is after: ");
+
+  result = malloc(20);
+  myfree(result);
+
+  if (result == free_list_start)
   {
     printf("YES\n");
   }
