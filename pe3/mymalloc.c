@@ -22,6 +22,12 @@ struct mem_control_block
 // pointer to start of our free list
 struct mem_control_block *free_list_start;
 
+struct free_blocks
+{
+  struct mem_control_block *prev;
+  struct mem_control_block *next;
+};
+
 void mymalloc_init()
 {
 
@@ -136,46 +142,41 @@ void *mymalloc(long numbytes)
   /* add your code here! */
 }
 
-struct mem_control_block *findPrevious(void *firstbyte, struct mem_control_block *current)
+struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *current)
 {
+  struct free_blocks blocks = {NULL, NULL};
   // if there are no free blocks, return NULL
   if (current == NULL)
   {
-    return NULL;
+    return blocks;
   }
-  // if current is the previous free block, return it
+  // if current is the previous free block, return that
   else if ((void *)current < firstbyte && (current->next == NULL || firstbyte < (void *)current->next))
   {
-    return current;
+    blocks.prev = current;
+    blocks.next = current->next;
+    return blocks;
+  }
+  // if there is no previous free block
+  else if (firstbyte < (void *)current)
+  {
+    blocks.prev = NULL;
+    blocks.next = current;
+    return blocks;
   }
   // if there are many preceeding free blocks, keep iterating
   else
   {
-    return findPrevious(firstbyte, current->next);
-  }
-}
-
-struct mem_control_block *findNext(void *firstbyte, struct mem_control_block *current)
-{
-  // if there are no free blocks, return NULL
-  if (current == NULL)
-  {
-    return NULL;
-  }
-  // if current is the next free block, return it
-  else if (firstbyte < (void *)current)
-  {
-    return current;
-  }
-  // if we haven't found it yet, keep iterating
-  else
-  {
-    return findNext(firstbyte, current->next);
+    return find_free_blocks(firstbyte, current->next);
   }
 }
 
 void myfree(void *firstbyte)
 {
+  unsigned short size_of_block = *(unsigned short *)(firstbyte - 2);
+  printf("\nsize of block: %d\n", size_of_block);
+  struct free_blocks blocks = find_free_blocks(firstbyte, free_list_start);
+  printf("(%p, %p)\n", blocks.prev, blocks.next);
   // read short and find size of our block
   // find prev free block
   // find next free block and merge with the new free block if adjacent
@@ -390,15 +391,18 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  /* Returns NULL if there are no suitable blocksSimple deallocation tests */
+  /* ------------------------------------------ */
+  /* Simple deallocation tests */
   printf("\nSIMPLE DEALLOCATION:\n");
 
   printf("Can deallocate the last allocated block, when the only free block is after: ");
 
-  result = malloc(20);
+  mymalloc_init();
+  mymalloc(40);
+  result = mymalloc(20);
   myfree(result);
 
-  if (result == free_list_start)
+  if (result - sizeof(short) == free_list_start)
   {
     printf("YES\n");
   }
