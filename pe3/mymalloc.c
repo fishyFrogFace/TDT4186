@@ -188,8 +188,11 @@ void myfree(void *firstbyte)
   }
   else if (blocks.prev == NULL)
   {
-    printf("NOT IMPLEMENTED");
-    exit(EXIT_FAILURE);
+    struct mem_control_block *m = (struct mem_control_block *)size_of_block;
+    m->size = *size_of_block + blocks.next->size;
+    m->next = blocks.next->next;
+
+    free_list_start = m;
   }
   else if (blocks.next == NULL)
   {
@@ -462,13 +465,5 @@ int main(int argc, char **argv)
   /* allocation
   * 4. don't allocate something in first free space when first free space is 
   * not large enough |00|1111|000... (with multiple free spaces)
-  * 
-  * deallocation
-  * 1. 1 thing in beginning that should be deallocated
-  * 2. two things in start where second should be deallocated
-  * 3. deallocate block with free block in front
-  * 4. deallocate block with allocated block in front and other free blocks in front
-  * 5. deallocate a block that will then be the last free block
-  * 6. opposite of 5
   * */
 }
