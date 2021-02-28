@@ -173,10 +173,34 @@ struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *c
 
 void myfree(void *firstbyte)
 {
-  unsigned short size_of_block = *(unsigned short *)(firstbyte - 2);
-  printf("\nsize of block: %d\n", size_of_block);
+  unsigned short *size_of_block = (unsigned short *)(firstbyte - 2);
+  printf("\nsize of block: %d\n", *size_of_block);
+
   struct free_blocks blocks = find_free_blocks(firstbyte, free_list_start);
   printf("(%p, %p)\n", blocks.prev, blocks.next);
+  if (blocks.prev == NULL && blocks.next == NULL)
+  {
+    struct mem_control_block *m = (struct mem_control_block *)size_of_block;
+    m->size = *size_of_block;
+    m->next = NULL;
+
+    free_list_start = m;
+  }
+  else if (blocks.prev == NULL)
+  {
+    printf("NOT IMPLEMENTED");
+    exit(EXIT_FAILURE);
+  }
+  else if (blocks.next == NULL)
+  {
+    printf("NOT IMPLEMENTED");
+    exit(EXIT_FAILURE);
+  }
+  else
+  {
+    printf("NOT IMPLEMENTED");
+    exit(EXIT_FAILURE);
+  }
   // read short and find size of our block
   // find prev free block
   // find next free block and merge with the new free block if adjacent
@@ -323,7 +347,7 @@ int main(int argc, char **argv)
 
   printf("Can allocate a block that creates a free block smaller than 16 bytes: ");
 
-  mymalloc_init();
+  mymalloc_init(); // reset state
   mymalloc(numbytes);
   long numbytes4 = MEM_SIZE - numbytes - 2 * sizeof(short) - 15;
   result = mymalloc(numbytes4);
@@ -376,7 +400,7 @@ int main(int argc, char **argv)
 
   printf("Returns NULL if there are no suitable blocks: ");
 
-  mymalloc_init(); // reset state
+  mymalloc_init();
   long numbytes6 = 64 * 1024 - 50;
   mymalloc(numbytes6);
   result = find_suitable_block(100, free_list_start);
@@ -393,7 +417,28 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
   /* Simple deallocation tests */
+
   printf("\nSIMPLE DEALLOCATION:\n");
+
+  printf("Can deallocate a block when memory is full: ");
+
+  mymalloc_init();
+  mymalloc(numbytes);
+  result = mymalloc(numbytes3);
+
+  myfree(result);
+
+  if (result - sizeof(short) == free_list_start)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
 
   printf("Can deallocate the last allocated block, when the only free block is after: ");
 
