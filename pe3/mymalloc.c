@@ -178,22 +178,25 @@ struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *c
 void myfree(void *firstbyte)
 {
   unsigned short *size_of_block = (unsigned short *)(firstbyte - 2);
-  printf("\nsize of block: %d\n", *size_of_block);
+  //printf("\nsize of block: %d\n", *size_of_block);
 
   struct free_blocks blocks = find_free_blocks(firstbyte, free_list_start);
-  printf("(%p, %p)\n", blocks.prev, blocks.next);
+  //printf("(%p, %p)\n", blocks.prev, blocks.next);
+
+  // pointer needed if we do not have to merge with preceding free block
+  struct mem_control_block *m = (struct mem_control_block *)size_of_block;
+
+  // there are no free blocks
   if (blocks.prev == NULL && blocks.next == NULL)
   {
-    struct mem_control_block *m = (struct mem_control_block *)size_of_block;
     m->size = *size_of_block;
     m->next = NULL;
 
     free_list_start = m;
   }
+  // there is no free block before the block we want to free
   else if (blocks.prev == NULL)
   {
-    struct mem_control_block *m = (struct mem_control_block *)size_of_block;
-
     // check if there's a free block immediately after
     if (blocks.next == (void *)size_of_block + *size_of_block)
     {
@@ -209,10 +212,10 @@ void myfree(void *firstbyte)
 
     free_list_start = m;
   }
+  // there is no free block after the block we want to free
   else if (blocks.next == NULL)
   {
     void *last_address_of_prev = (void *)blocks.prev + blocks.prev->size;
-
     // check if there's a free block immediately before
     if (last_address_of_prev == size_of_block)
     {
@@ -221,21 +224,45 @@ void myfree(void *firstbyte)
     }
     else
     {
-      struct mem_control_block *m = (struct mem_control_block *)size_of_block;
       m->size = *size_of_block;
-      m->next = blocks.next;
+      m->next = NULL;
+
+      blocks.prev->next = m;
     }
   }
+  // there are at least one free block before and after the block we want to free
   else
   {
-    printf("NOT IMPLEMENTED");
-    exit(EXIT_FAILURE);
+    void *last_address_of_prev = (void *)blocks.prev + blocks.prev->size;
+    // check if there's a free block immediately on both sides
+    if (blocks.next == (void *)size_of_block + *size_of_block && last_address_of_prev == size_of_block)
+    {
+      // add freed block and succeeding free block to preceding free block
+      blocks.prev->size = blocks.prev->size + *size_of_block + blocks.next->size;
+      blocks.prev->next = blocks.next->next;
+    }
+    // check if there's a free block immediately after
+    else if (blocks.next == (void *)size_of_block + *size_of_block)
+    {
+      m->size = *size_of_block + blocks.next->size;
+      m->next = blocks.next->next;
+
+      blocks.prev->next = m;
+    }
+    // check if there's a free block immediately before
+    else if (last_address_of_prev == size_of_block)
+    {
+      blocks.prev->size = blocks.prev->size + *size_of_block;
+    }
+    // no block on either side that needs merging
+    else
+    {
+      m->size = *size_of_block;
+      m->next = blocks.next;
+
+      blocks.prev->next = m;
+    }
   }
-  // read short and find size of our block
-  // find prev free block
-  // find next free block and merge with the new free block if adjacent
-  // point prev free block to new free block
-  // point new free block next to either: next free block next (if adjacent) or prev free block next
 }
 
 int main(int argc, char **argv)
@@ -495,7 +522,7 @@ int main(int argc, char **argv)
   mymalloc(numbytes);
   void *first_to_free = mymalloc(20);
   void *second_to_free = mymalloc(30);
-  void *aylmao = mymalloc(MEM_SIZE - numbytes - 50 - 4 * sizeof(short));
+  mymalloc(MEM_SIZE - numbytes - 50 - 4 * sizeof(short));
   myfree(first_to_free);
   myfree(second_to_free);
 
@@ -511,6 +538,29 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
 
+  printf("Can merge a freed block with blocks on both sides: ");
+
+  mymalloc_init();
+  mymalloc(numbytes);
+  first_to_free = mymalloc(20);
+  void *third_to_free = mymalloc(30);
+  second_to_free = mymalloc(20);
+  mymalloc(MEM_SIZE - numbytes - 70 - 4 * sizeof(short));
+  myfree(first_to_free);
+  myfree(second_to_free);
+  myfree(third_to_free);
+
+  if (first_to_free - sizeof(short) == free_list_start && free_list_start->next == NULL)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
   /* allocation
   * 4. don't allocate something in first free space when first free space is 
   * not large enough |00|1111|000... (with multiple free spaces)
