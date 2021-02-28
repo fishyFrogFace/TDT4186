@@ -83,9 +83,12 @@ void *mymalloc(long numbytes)
   long size_of_new_block = numbytes + sizeof(short);
   void *first_suitable = find_suitable_block(numbytes, free_list_start);
 
-  /* if no space is requested or we don't have this amount of space
-  * then return NULL */
-  if (numbytes == 0 || first_suitable == NULL)
+  /* If no space is requested or we don't have this amount of space
+  * then return NULL.
+  * Also return NULL if we try to allocate less than 16 bytes,
+  * because we want to have space for a mem_control_block if
+  * we deallocate the block again. */
+  if (numbytes == 0 || first_suitable == NULL || numbytes + sizeof(short) < 16)
   {
     return NULL;
   }
@@ -100,6 +103,7 @@ void *mymalloc(long numbytes)
       {
         struct mem_control_block *m = (void *)free_list_start + size_of_new_block;
         m->size = free_list_start->size - size_of_new_block;
+        m->next = free_list_start->next;
 
         unsigned short *block_size = (unsigned short *)free_list_start;
         *block_size = size_of_new_block;
@@ -164,7 +168,7 @@ struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *c
     blocks.next = current;
     return blocks;
   }
-  // if there are many preceeding free blocks, keep iterating
+  // if there are many preceding free blocks, keep iterating
   else
   {
     return find_free_blocks(firstbyte, current->next);
@@ -189,15 +193,38 @@ void myfree(void *firstbyte)
   else if (blocks.prev == NULL)
   {
     struct mem_control_block *m = (struct mem_control_block *)size_of_block;
-    m->size = *size_of_block + blocks.next->size;
-    m->next = blocks.next->next;
+
+    // check if there's a free block immediately after
+    if (blocks.next == (void *)size_of_block + *size_of_block)
+    {
+      // merge the two blocks
+      m->size = *size_of_block + blocks.next->size;
+      m->next = blocks.next->next;
+    }
+    else
+    {
+      m->size = *size_of_block;
+      m->next = blocks.next;
+    }
 
     free_list_start = m;
   }
   else if (blocks.next == NULL)
   {
-    printf("NOT IMPLEMENTED");
-    exit(EXIT_FAILURE);
+    void *last_address_of_prev = (void *)blocks.prev + blocks.prev->size;
+
+    // check if there's a free block immediately before
+    if (last_address_of_prev == size_of_block)
+    {
+      // add size of freed block to preceding free block
+      blocks.prev->size = blocks.prev->size + *size_of_block;
+    }
+    else
+    {
+      struct mem_control_block *m = (struct mem_control_block *)size_of_block;
+      m->size = *size_of_block;
+      m->next = blocks.next;
+    }
   }
   else
   {
@@ -421,7 +448,7 @@ int main(int argc, char **argv)
   /* ------------------------------------------ */
   /* Simple deallocation tests */
 
-  printf("\nSIMPLE DEALLOCATION:\n");
+  printf("\nDEALLOCATION:\n");
 
   printf("Can deallocate a block when memory is full: ");
 
@@ -443,7 +470,7 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
 
-  printf("Can deallocate the last allocated block, when the only free block is after: ");
+  printf("Can merge a freed block with a succeeding free block: ");
 
   mymalloc_init();
   mymalloc(40);
@@ -451,6 +478,28 @@ int main(int argc, char **argv)
   myfree(result);
 
   if (result - sizeof(short) == free_list_start)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("Can merge a freed block with a preceding free block: ");
+
+  mymalloc_init();
+  mymalloc(numbytes);
+  void *first_to_free = mymalloc(20);
+  void *second_to_free = mymalloc(30);
+  void *aylmao = mymalloc(MEM_SIZE - numbytes - 50 - 4 * sizeof(short));
+  myfree(first_to_free);
+  myfree(second_to_free);
+
+  if (first_to_free - sizeof(short) == free_list_start)
   {
     printf("YES\n");
   }
