@@ -97,50 +97,40 @@ void *mymalloc(long numbytes)
   * we deallocate the block again. */
   if (numbytes == 0 || first_suitable == NULL || numbytes + sizeof(short) < 16)
   {
-    printf("\nreturning NULL from malloc\n");
     return NULL;
   }
-  //if the first suitable free block is the first free block
-  else if ((void *)first_suitable == free_list_start)
+  // if the suitable block is larger than the block we want
+  if (free_list_start->size > size_of_new_block)
   {
-    // if the suitable block is larger than the block we want
-    if (free_list_start->size > size_of_new_block)
+    // there is room for a struct in the remaining free block
+    if (first_suitable->size - size_of_new_block > 16)
     {
-      // there is room for a struct in the remaining free block
-      if (first_suitable->size - size_of_new_block > 16)
-      {
-        struct mem_control_block *m = (void *)first_suitable + size_of_new_block;
-        m->size = first_suitable->size - size_of_new_block;
-        m->next = first_suitable->next;
+      struct mem_control_block *m = (void *)first_suitable + size_of_new_block;
+      m->size = first_suitable->size - size_of_new_block;
+      m->next = first_suitable->next;
 
-        *block_size = size_of_new_block;
+      *block_size = size_of_new_block;
 
-        *pointer_to_prev_or_free_list_start = m;
-      }
-      /* If there is no room for a struct in the remaining free block
+      *pointer_to_prev_or_free_list_start = m;
+    }
+    /* If there is no room for a struct in the remaining free block
       * we add the extra space to the block we are allocating.
       * This way we can still keep track of it without creating
       * a new structure to keep track of small deallocated pieces. */
-      else
-      {
-        unsigned short size_of_free_block = first_suitable->size;
-        *pointer_to_prev_or_free_list_start = first_suitable->next;
-        *block_size = size_of_free_block;
-      }
-    }
-    // if the suitable block is equal to the block we want
     else
     {
+      unsigned short size_of_free_block = first_suitable->size;
       *pointer_to_prev_or_free_list_start = first_suitable->next;
-      *block_size = size_of_new_block;
+      *block_size = size_of_free_block;
     }
-    return block_size + 1;
   }
+  // if the suitable block is equal to the block we want
   else
   {
-    printf("NOT IMPLEMENTED");
-    return NULL;
+    *pointer_to_prev_or_free_list_start = first_suitable->next;
+    *block_size = size_of_new_block;
   }
+  return block_size + 1;
 }
 
 struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *current)
@@ -608,11 +598,10 @@ int main(int argc, char **argv)
   mymalloc(30);
 
   myfree(block_to_free);
-  print_free_list(free_list_start);
 
   result = mymalloc(21);
 
-  if (result == managed_memory_start + 90 + 4 * sizeof(short) && result < (void *)free_list_start)
+  if (result == managed_memory_start + 90 + 4 * sizeof(short) && (void *)free_list_start < result)
   {
     printf("YES\n");
   }
@@ -633,9 +622,9 @@ int main(int argc, char **argv)
 
   myfree(block_to_free);
 
-  mymalloc(20);
+  result = mymalloc(20);
 
-  if (result == managed_memory_start + 40 + 2 * sizeof(short) && (void *)free_list_start < result)
+  if (result == managed_memory_start + 40 + 2 * sizeof(short) && result < (void *)free_list_start)
   {
     printf("YES\n");
   }
