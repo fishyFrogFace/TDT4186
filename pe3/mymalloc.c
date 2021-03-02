@@ -68,7 +68,7 @@ void *find_suitable_block(unsigned short numbytes, struct mem_control_block *cur
   }
   else
   {
-    return find_suitable_block(numbytes, current);
+    return find_suitable_block(numbytes, current->next);
   }
 }
 
@@ -78,9 +78,11 @@ void *mymalloc(long numbytes)
   {
     mymalloc_init();
   }
+  printf("\nentered malloc, numbytes: %ld\n", numbytes + sizeof(short));
 
   // determine how much space we need and if we have this space available
   long size_of_new_block = numbytes + sizeof(short);
+  printf("size_of_new_block: %ld", size_of_new_block);
   void *first_suitable = find_suitable_block(numbytes, free_list_start);
 
   /* If no space is requested or we don't have this amount of space
@@ -90,11 +92,13 @@ void *mymalloc(long numbytes)
   * we deallocate the block again. */
   if (numbytes == 0 || first_suitable == NULL || numbytes + sizeof(short) < 16)
   {
+    printf("\nreturning NULL from malloc\n");
     return NULL;
   }
   //if the first suitable free block is the first free block
   else if (first_suitable == free_list_start)
   {
+    printf("\nfirst_suitable == free_list_start %p %p\n", first_suitable, free_list_start);
     // if the suitable block is larger than the block we want
     if (free_list_start->size > size_of_new_block)
     {
@@ -142,8 +146,6 @@ void *mymalloc(long numbytes)
     printf("NOT IMPLEMENTED");
     return NULL;
   }
-
-  /* add your code here! */
 }
 
 struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *current)
@@ -262,6 +264,19 @@ void myfree(void *firstbyte)
 
       blocks.prev->next = m;
     }
+  }
+}
+
+void print_free_list(struct mem_control_block *current)
+{
+  if (current == NULL)
+  {
+    printf("\nEnd of free list\n");
+  }
+  else
+  {
+    printf("\nFree block address: %p, size: %d, next: %p", current, current->size, current->next);
+    print_free_list(current->next);
   }
 }
 
@@ -541,11 +556,11 @@ int main(int argc, char **argv)
   printf("Can merge a freed block with blocks on both sides: ");
 
   mymalloc_init();
-  mymalloc(numbytes);
+  mymalloc(40);
   first_to_free = mymalloc(20);
   void *third_to_free = mymalloc(30);
   second_to_free = mymalloc(20);
-  mymalloc(MEM_SIZE - numbytes - 70 - 4 * sizeof(short));
+  mymalloc(MEM_SIZE - 110 - 4 * sizeof(short));
   myfree(first_to_free);
   myfree(second_to_free);
   myfree(third_to_free);
@@ -561,8 +576,54 @@ int main(int argc, char **argv)
   }
 
   /* ------------------------------------------ */
-  /* allocation
-  * 4. don't allocate something in first free space when first free space is 
-  * not large enough |00|1111|000... (with multiple free spaces)
-  * */
+  /* More extensive tests that combines allocation and deallocation */
+
+  printf("\nCOMPOUND TESTS:\n");
+
+  printf("Can skip a free space and allocate in next when the first free space is not large enough: ");
+
+  mymalloc_init();
+  mymalloc(40);
+  void *block_to_free = mymalloc(20);
+  mymalloc(30);
+
+  myfree(block_to_free);
+  print_free_list(free_list_start);
+
+  result = mymalloc(21);
+
+  if (result == managed_memory_start + 90 + 4 * sizeof(short) && result < (void *)free_list_start)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("Can allocate something in first free space when first free space is large enough: ");
+
+  mymalloc_init();
+  mymalloc(40);
+  block_to_free = mymalloc(20);
+  mymalloc(30);
+
+  myfree(block_to_free);
+
+  mymalloc(20);
+
+  if (result == managed_memory_start + 40 + 2 * sizeof(short) && (void *)free_list_start < result)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
 }
