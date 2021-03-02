@@ -52,23 +52,26 @@ void mymalloc_init()
   has_initialized = 1;
 }
 
-void *find_suitable_block(unsigned short numbytes, struct mem_control_block *current)
+struct free_blocks find_suitable_block(unsigned short numbytes, struct mem_control_block *prev, struct mem_control_block *current)
 {
   if (current == NULL)
   {
-    return NULL;
+    struct free_blocks blocks = {NULL, NULL};
+    return blocks;
   }
   else if (current->size >= numbytes + sizeof(short))
   {
-    return current;
+    struct free_blocks blocks = {prev, current};
+    return blocks;
   }
   else if (current->next == NULL)
   {
-    return NULL;
+    struct free_blocks blocks = {NULL, NULL};
+    return blocks;
   }
   else
   {
-    return find_suitable_block(numbytes, current->next);
+    return find_suitable_block(numbytes, current, current->next);
   }
 }
 
@@ -78,12 +81,12 @@ void *mymalloc(long numbytes)
   {
     mymalloc_init();
   }
-  printf("\nentered malloc, numbytes: %ld\n", numbytes + sizeof(short));
+  //printf("\nentered malloc, numbytes: %ld\n", numbytes + sizeof(short));
 
   // determine how much space we need and if we have this space available
   long size_of_new_block = numbytes + sizeof(short);
-  printf("size_of_new_block: %ld", size_of_new_block);
-  void *first_suitable = find_suitable_block(numbytes, free_list_start);
+  struct free_blocks blocks = find_suitable_block(numbytes, NULL, free_list_start);
+  struct mem_control_block *first_suitable = blocks.next;
 
   /* If no space is requested or we don't have this amount of space
   * then return NULL.
@@ -96,9 +99,8 @@ void *mymalloc(long numbytes)
     return NULL;
   }
   //if the first suitable free block is the first free block
-  else if (first_suitable == free_list_start)
+  else if ((void *)first_suitable == free_list_start)
   {
-    printf("\nfirst_suitable == free_list_start %p %p\n", first_suitable, free_list_start);
     // if the suitable block is larger than the block we want
     if (free_list_start->size > size_of_new_block)
     {
@@ -459,8 +461,8 @@ int main(int argc, char **argv)
 
   printf("Returns first suitable block when that block is passed to the function: ");
 
-  result = find_suitable_block(40, free_list_start);
-  if (result == free_list_start)
+  struct free_blocks first_suitable_result = find_suitable_block(40, NULL, free_list_start);
+  if ((void *)first_suitable_result.next == free_list_start && (void *)first_suitable_result.prev == NULL)
   {
     printf("YES\n");
   }
@@ -475,9 +477,34 @@ int main(int argc, char **argv)
   mymalloc_init();
   long numbytes6 = 64 * 1024 - 50;
   mymalloc(numbytes6);
-  result = find_suitable_block(100, free_list_start);
+  first_suitable_result = find_suitable_block(100, NULL, free_list_start);
 
-  if (result == NULL)
+  if ((void *)first_suitable_result.next == NULL && (void *)first_suitable_result.prev == NULL)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("Recursively finds suitable block and it's predecessor: ");
+
+  mymalloc_init();
+  mymalloc(20);
+  mymalloc(30);
+  result = mymalloc(40);
+  mymalloc(30);
+  void *result2 = mymalloc(30);
+  void *result3 = mymalloc(50);
+  myfree(result);
+  myfree(result2);
+
+  first_suitable_result = find_suitable_block(41, NULL, free_list_start);
+
+  if ((void *)first_suitable_result.next == result3 + 50 &&
+      (void *)first_suitable_result.prev == result2 - 2)
   {
     printf("YES\n");
   }
