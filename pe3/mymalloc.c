@@ -81,12 +81,14 @@ void *mymalloc(long numbytes)
   {
     mymalloc_init();
   }
-  //printf("\nentered malloc, numbytes: %ld\n", numbytes + sizeof(short));
 
-  // determine how much space we need and if we have this space available
   long size_of_new_block = numbytes + sizeof(short);
+
   struct free_blocks blocks = find_suitable_block(numbytes, NULL, free_list_start);
   struct mem_control_block *first_suitable = blocks.next;
+  unsigned short *block_size = (unsigned short *)first_suitable;
+  struct mem_control_block **pointer_to_prev_or_free_list_start =
+      (void *)first_suitable == free_list_start ? &free_list_start : &blocks.prev;
 
   /* If no space is requested or we don't have this amount of space
   * then return NULL.
@@ -101,7 +103,6 @@ void *mymalloc(long numbytes)
   //if the first suitable free block is the first free block
   else if ((void *)first_suitable == free_list_start)
   {
-    unsigned short *block_size = (unsigned short *)first_suitable;
     // if the suitable block is larger than the block we want
     if (free_list_start->size > size_of_new_block)
     {
@@ -114,7 +115,7 @@ void *mymalloc(long numbytes)
 
         *block_size = size_of_new_block;
 
-        free_list_start = m;
+        *pointer_to_prev_or_free_list_start = m;
       }
       /* If there is no room for a struct in the remaining free block
       * we add the extra space to the block we are allocating.
@@ -123,14 +124,14 @@ void *mymalloc(long numbytes)
       else
       {
         unsigned short size_of_free_block = first_suitable->size;
-        free_list_start = first_suitable->next;
+        *pointer_to_prev_or_free_list_start = first_suitable->next;
         *block_size = size_of_free_block;
       }
     }
     // if the suitable block is equal to the block we want
     else
     {
-      free_list_start = free_list_start->next;
+      *pointer_to_prev_or_free_list_start = first_suitable->next;
       *block_size = size_of_new_block;
     }
     return block_size + 1;
