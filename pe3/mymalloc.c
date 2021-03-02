@@ -101,22 +101,20 @@ void *mymalloc(long numbytes)
   //if the first suitable free block is the first free block
   else if ((void *)first_suitable == free_list_start)
   {
+    unsigned short *block_size = (unsigned short *)first_suitable;
     // if the suitable block is larger than the block we want
     if (free_list_start->size > size_of_new_block)
     {
       // there is room for a struct in the remaining free block
-      if (free_list_start->size - size_of_new_block > 16)
+      if (first_suitable->size - size_of_new_block > 16)
       {
-        struct mem_control_block *m = (void *)free_list_start + size_of_new_block;
-        m->size = free_list_start->size - size_of_new_block;
-        m->next = free_list_start->next;
+        struct mem_control_block *m = (void *)first_suitable + size_of_new_block;
+        m->size = first_suitable->size - size_of_new_block;
+        m->next = first_suitable->next;
 
-        unsigned short *block_size = (unsigned short *)free_list_start;
         *block_size = size_of_new_block;
 
         free_list_start = m;
-
-        return block_size + 1;
       }
       /* If there is no room for a struct in the remaining free block
       * we add the extra space to the block we are allocating.
@@ -124,25 +122,19 @@ void *mymalloc(long numbytes)
       * a new structure to keep track of small deallocated pieces. */
       else
       {
-        unsigned short *block_size = (unsigned short *)free_list_start;
-        unsigned short size_of_free_block = free_list_start->size;
-        free_list_start = free_list_start->next;
+        unsigned short size_of_free_block = first_suitable->size;
+        free_list_start = first_suitable->next;
         *block_size = size_of_free_block;
-
-        return block_size + 1;
       }
     }
     // if the suitable block is equal to the block we want
     else
     {
-      unsigned short *block_size = (unsigned short *)free_list_start;
       free_list_start = free_list_start->next;
       *block_size = size_of_new_block;
-
-      return block_size + 1;
     }
+    return block_size + 1;
   }
-  // all other possibilities
   else
   {
     printf("NOT IMPLEMENTED");
