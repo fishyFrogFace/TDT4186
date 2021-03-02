@@ -52,14 +52,14 @@ void mymalloc_init()
   has_initialized = 1;
 }
 
-struct free_blocks find_suitable_block(unsigned short numbytes, struct mem_control_block *prev, struct mem_control_block *current)
+struct free_blocks find_suitable_block(long numbytes, struct mem_control_block *prev, struct mem_control_block *current)
 {
   if (current == NULL)
   {
     struct free_blocks blocks = {NULL, NULL};
     return blocks;
   }
-  else if (current->size >= numbytes + sizeof(short))
+  else if (current->size >= numbytes)
   {
     struct free_blocks blocks = {prev, current};
     return blocks;
@@ -82,9 +82,10 @@ void *mymalloc(long numbytes)
     mymalloc_init();
   }
 
-  long size_of_new_block = numbytes + sizeof(short);
+  // add the size of a short and round up to a multiple of 8
+  long size_of_new_block = (numbytes + sizeof(short) + 8 - 1) & -8;
 
-  struct free_blocks blocks = find_suitable_block(numbytes, NULL, free_list_start);
+  struct free_blocks blocks = find_suitable_block(size_of_new_block, NULL, free_list_start);
   struct mem_control_block *first_suitable = blocks.next;
   unsigned short *block_size = (unsigned short *)first_suitable;
   struct mem_control_block **pointer_to_prev_or_free_list_start =
@@ -95,7 +96,7 @@ void *mymalloc(long numbytes)
   * Also return NULL if we try to allocate less than 16 bytes,
   * because we want to have space for a mem_control_block if
   * we deallocate the block again. */
-  if (numbytes == 0 || first_suitable == NULL || numbytes + sizeof(short) < 16)
+  if (numbytes == 0 || first_suitable == NULL || size_of_new_block < 16)
   {
     return NULL;
   }
@@ -165,10 +166,8 @@ struct free_blocks find_free_blocks(void *firstbyte, struct mem_control_block *c
 void myfree(void *firstbyte)
 {
   unsigned short *size_of_block = (unsigned short *)(firstbyte - 2);
-  //printf("\nsize of block: %d\n", *size_of_block);
 
   struct free_blocks blocks = find_free_blocks(firstbyte, free_list_start);
-  //printf("(%p, %p)\n", blocks.prev, blocks.next);
 
   // pointer needed if we do not have to merge with preceding free block
   struct mem_control_block *m = (struct mem_control_block *)size_of_block;
@@ -252,6 +251,7 @@ void myfree(void *firstbyte)
   }
 }
 
+// for debugging
 void print_free_list(struct mem_control_block *current)
 {
   if (current == NULL)
@@ -263,6 +263,11 @@ void print_free_list(struct mem_control_block *current)
     printf("\nFree block address: %p, size: %d, next: %p", current, current->size, current->next);
     print_free_list(current->next);
   }
+}
+
+int calc_rounded(int numbytes)
+{
+  return (numbytes + sizeof(short) + 8 - 1) & -8;
 }
 
 int main(int argc, char **argv)
@@ -303,7 +308,7 @@ int main(int argc, char **argv)
   long numbytes = 40;
   result = mymalloc(numbytes);
 
-  if (free_list_start->size == MEM_SIZE - numbytes - sizeof(short))
+  if (free_list_start->size == MEM_SIZE - calc_rounded(numbytes))
   {
     printf("YES\n");
   }
@@ -324,8 +329,6 @@ int main(int argc, char **argv)
   else
   {
     printf("NO\n");
-    printf("managed_memory_start + sizeof(short): %p\n", managed_memory_start + sizeof(short));
-    printf("result: %p\n", result);
     exit(EXIT_FAILURE);
   }
 
@@ -333,7 +336,7 @@ int main(int argc, char **argv)
 
   printf("When one block is allocated, the free block struct is located after the allocated block: ");
 
-  if (free_list_start == managed_memory_start + sizeof(short) + numbytes)
+  if (free_list_start == managed_memory_start + calc_rounded(numbytes))
   {
     printf("YES\n");
   }
@@ -350,7 +353,7 @@ int main(int argc, char **argv)
   printf("Sets the first 2 bytes of the allocated block to the size of the block: ");
 
   unsigned short *block_size = managed_memory_start;
-  if (*block_size == numbytes + 2)
+  if (*block_size == calc_rounded(numbytes))
   {
     printf("YES\n");
   }
@@ -379,7 +382,7 @@ int main(int argc, char **argv)
   }
   else
   {
-    printf("NO\n");
+    printf("NO %p\n", result);
     exit(EXIT_FAILURE);
   }
 
@@ -387,10 +390,10 @@ int main(int argc, char **argv)
 
   printf("Can allocate a block that takes all remaining memory: ");
 
-  long numbytes3 = MEM_SIZE - numbytes - 2 * sizeof(short);
+  long numbytes3 = MEM_SIZE - calc_rounded(numbytes) - sizeof(short);
   result = mymalloc(numbytes3);
 
-  if (result == managed_memory_start + 2 * sizeof(short) + numbytes && free_list_start == NULL)
+  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes) && free_list_start == NULL)
   {
     printf("YES\n");
   }
@@ -406,10 +409,10 @@ int main(int argc, char **argv)
 
   mymalloc_init(); // reset state
   mymalloc(numbytes);
-  long numbytes4 = MEM_SIZE - numbytes - 2 * sizeof(short) - 15;
+  long numbytes4 = MEM_SIZE - calc_rounded(numbytes) - sizeof(short) - 15;
   result = mymalloc(numbytes4);
 
-  if (result == managed_memory_start + 2 * sizeof(short) + numbytes && free_list_start == NULL)
+  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes) && free_list_start == NULL)
   {
     printf("YES\n");
   }
@@ -428,7 +431,7 @@ int main(int argc, char **argv)
   long numbytes5 = 64;
   result = mymalloc(numbytes5);
 
-  if (result == managed_memory_start + sizeof(short) * 2 + numbytes)
+  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes))
   {
     printf("YES\n");
   }
@@ -484,9 +487,9 @@ int main(int argc, char **argv)
   myfree(result);
   myfree(result2);
 
-  first_suitable_result = find_suitable_block(41, NULL, free_list_start);
+  first_suitable_result = find_suitable_block(49, NULL, free_list_start);
 
-  if ((void *)first_suitable_result.next == result3 + 50 &&
+  if ((void *)first_suitable_result.next == result3 + 54 &&
       (void *)first_suitable_result.prev == result2 - 2)
   {
     printf("YES\n");
@@ -599,9 +602,9 @@ int main(int argc, char **argv)
 
   myfree(block_to_free);
 
-  result = mymalloc(21);
+  result = mymalloc(23);
 
-  if (result == managed_memory_start + 90 + 4 * sizeof(short) && (void *)free_list_start < result)
+  if (result == managed_memory_start + 104 + sizeof(short) && (void *)free_list_start < result)
   {
     printf("YES\n");
   }
@@ -624,7 +627,7 @@ int main(int argc, char **argv)
 
   result = mymalloc(20);
 
-  if (result == managed_memory_start + 40 + 2 * sizeof(short) && result < (void *)free_list_start)
+  if (result == managed_memory_start + 48 + sizeof(short) && result < (void *)free_list_start)
   {
     printf("YES\n");
   }
