@@ -89,7 +89,7 @@ void *mymalloc(long numbytes)
   }
 
   // add the size of a short and round up to a multiple of 8
-  long size_of_new_block = calc_rounded(numbytes) < 16 ? 16 : calc_rounded(numbytes);
+  long size_of_new_block = calc_rounded(numbytes);
 
   struct free_blocks blocks = find_suitable_block(size_of_new_block, NULL, free_list_start);
   struct mem_control_block *first_suitable = blocks.next;
