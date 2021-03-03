@@ -75,6 +75,12 @@ struct free_blocks find_suitable_block(long numbytes, struct mem_control_block *
   }
 }
 
+int calc_rounded(long numbytes)
+{
+  long rounded = (numbytes + sizeof(short) + 8 - 1) & -8;
+  return rounded < 16 ? 16 : rounded;
+}
+
 void *mymalloc(long numbytes)
 {
   if (has_initialized == 0)
@@ -83,7 +89,7 @@ void *mymalloc(long numbytes)
   }
 
   // add the size of a short and round up to a multiple of 8
-  long size_of_new_block = (numbytes + sizeof(short) + 8 - 1) & -8;
+  long size_of_new_block = calc_rounded(numbytes) < 16 ? 16 : calc_rounded(numbytes);
 
   struct free_blocks blocks = find_suitable_block(size_of_new_block, NULL, free_list_start);
   struct mem_control_block *first_suitable = blocks.next;
@@ -96,7 +102,7 @@ void *mymalloc(long numbytes)
   * Also return NULL if we try to allocate less than 16 bytes,
   * because we want to have space for a mem_control_block if
   * we deallocate the block again. */
-  if (numbytes == 0 || first_suitable == NULL || size_of_new_block < 16)
+  if (numbytes <= 0 || first_suitable == NULL)
   {
     return NULL;
   }
@@ -265,15 +271,39 @@ void print_free_list(struct mem_control_block *current)
   }
 }
 
-int calc_rounded(int numbytes)
-{
-  return (numbytes + sizeof(short) + 8 - 1) & -8;
-}
-
 int main(int argc, char **argv)
 {
+  /* ------------------------------------------ */
+  /* Rounding tests*/
+  printf("ROUNDING FOR MEMORY ALIGNMENT:\n");
+
+  printf("Rounds values below 14 to 16: ");
+  if (calc_rounded(1) == 16 && calc_rounded(14) == 16)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
+  printf("Rounds values above 14 to the next multiple of 8: ");
+  if (calc_rounded(15) == 24 && calc_rounded(40) == 48)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
   /* Simple allocation tests */
-  printf("SIMPLE ALLOCATION:\n");
+  printf("\nSIMPLE ALLOCATION:\n");
 
   void *result = mymalloc(0);
 
@@ -343,8 +373,6 @@ int main(int argc, char **argv)
   else
   {
     printf("NO\n");
-    printf("managed_memory_start + sizeof(short) + numbytes: %p\n", managed_memory_start + sizeof(short) + numbytes);
-    printf("free_list_start: %p\n", free_list_start);
     exit(EXIT_FAILURE);
   }
 
@@ -424,6 +452,25 @@ int main(int argc, char **argv)
 
   /* ------------------------------------------ */
 
+  printf("Can allocate a 16 byte block when asked to create smaller blocks: ");
+
+  mymalloc_init();
+  result = mymalloc(1);
+  void *result2 = mymalloc(14);
+
+  if (
+      result2 == managed_memory_start + 16 + sizeof(short) && (void *)free_list_start == managed_memory_start + 32)
+  {
+    printf("YES\n");
+  }
+  else
+  {
+    printf("NO\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* ------------------------------------------ */
+
   printf("Can allocate a second block, without overwriting the first block: ");
 
   mymalloc_init();
@@ -448,7 +495,8 @@ int main(int argc, char **argv)
   printf("Returns first suitable block when that block is passed to the function: ");
 
   struct free_blocks first_suitable_result = find_suitable_block(40, NULL, free_list_start);
-  if ((void *)first_suitable_result.next == free_list_start && (void *)first_suitable_result.prev == NULL)
+  if (
+      (void *)first_suitable_result.next == free_list_start && (void *)first_suitable_result.prev == NULL)
   {
     printf("YES\n");
   }
@@ -457,6 +505,8 @@ int main(int argc, char **argv)
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
+
+  /* ------------------------------------------ */
 
   printf("Returns NULL if there are no suitable blocks: ");
 
@@ -475,6 +525,8 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
+  /* ------------------------------------------ */
+
   printf("Recursively finds suitable block and it's predecessor: ");
 
   mymalloc_init();
@@ -482,7 +534,7 @@ int main(int argc, char **argv)
   mymalloc(30);
   result = mymalloc(40);
   mymalloc(30);
-  void *result2 = mymalloc(30);
+  result2 = mymalloc(30);
   void *result3 = mymalloc(50);
   myfree(result);
   myfree(result2);
