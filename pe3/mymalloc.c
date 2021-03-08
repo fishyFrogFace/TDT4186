@@ -13,8 +13,7 @@ uint8_t heap[MEM_SIZE];
 void *managed_memory_start;
 
 // this block is stored at the start of each free and used block
-struct mem_control_block
-{
+struct mem_control_block {
   int size;
   struct mem_control_block *next;
 };
@@ -22,14 +21,12 @@ struct mem_control_block
 // pointer to start of our free list
 struct mem_control_block *free_list_start;
 
-struct free_blocks
-{
+struct free_blocks {
   struct mem_control_block *prev;
   struct mem_control_block *next;
 };
 
-void mymalloc_init()
-{
+void mymalloc_init() {
 
   // our memory starts at the start of the heap array
   managed_memory_start = &heap;
@@ -55,68 +52,53 @@ void mymalloc_init()
 
 struct free_blocks find_suitable_block(long numbytes,
                                        struct mem_control_block *prev,
-                                       struct mem_control_block *current)
-{
-  if (current == NULL)
-  {
+                                       struct mem_control_block *current) {
+  if (current == NULL) {
     struct free_blocks blocks = {NULL, NULL};
     return blocks;
-  }
-  else if (current->size >= numbytes)
-  {
+  } else if (current->size >= numbytes) {
     struct free_blocks blocks = {prev, current};
     return blocks;
-  }
-  else if (current->next == NULL)
-  {
+  } else if (current->next == NULL) {
     struct free_blocks blocks = {NULL, NULL};
     return blocks;
-  }
-  else
-  {
+  } else {
     return find_suitable_block(numbytes, current, current->next);
   }
 }
 
-int calc_rounded(long numbytes)
-{
-  long rounded = (numbytes + sizeof(short) + 8 - 1) & -8;
+int calc_rounded(long numbytes) {
+  long rounded = (numbytes + sizeof(long) + 8 - 1) & -8;
   return rounded < 16 ? 16 : rounded;
 }
 
-void *mymalloc(long numbytes)
-{
-  if (has_initialized == 0)
-  {
+void *mymalloc(long numbytes) {
+  if (has_initialized == 0) {
     mymalloc_init();
   }
 
-  // add the size of a short and round up to a multiple of 8
+  /* add the size of a long and round up to a multiple of 8
+  * but minimum 16 bytes, so we will always have room for a
+  * mem_control_block when freeing */
   long size_of_new_block = calc_rounded(numbytes);
 
   struct free_blocks blocks =
       find_suitable_block(size_of_new_block, NULL, free_list_start);
   struct mem_control_block *first_suitable = blocks.next;
-  unsigned short *block_size = (unsigned short *)first_suitable;
+  long *block_size = (long *)first_suitable;
   struct mem_control_block **pointer_to_prev_or_free_list_start =
       (void *)first_suitable == free_list_start ? &free_list_start
                                                 : &blocks.prev;
 
   /* If no space is requested or we don't have this amount of space
-   * then return NULL.
-   * Also return NULL if we try to allocate less than 16 bytes,
-   * because we want to have space for a mem_control_block if
-   * we deallocate the block again. */
-  if (numbytes <= 0 || first_suitable == NULL)
-  {
+   * then return NULL. */
+  if (numbytes <= 0 || first_suitable == NULL) {
     return NULL;
   }
   // if the suitable block is larger than the block we want
-  if (free_list_start->size > size_of_new_block)
-  {
+  if (free_list_start->size > size_of_new_block) {
     // there is room for a struct in the remaining free block
-    if (first_suitable->size - size_of_new_block > 16)
-    {
+    if (first_suitable->size - size_of_new_block > 16) {
       struct mem_control_block *m = (void *)first_suitable + size_of_new_block;
       m->size = first_suitable->size - size_of_new_block;
       m->next = first_suitable->next;
@@ -129,16 +111,14 @@ void *mymalloc(long numbytes)
      * we add the extra space to the block we are allocating.
      * This way we can still keep track of it without creating
      * a new structure to keep track of small deallocated pieces. */
-    else
-    {
-      unsigned short size_of_free_block = first_suitable->size;
+    else {
+      long size_of_free_block = first_suitable->size;
       *pointer_to_prev_or_free_list_start = first_suitable->next;
       *block_size = size_of_free_block;
     }
   }
   // if the suitable block is equal to the block we want
-  else
-  {
+  else {
     *pointer_to_prev_or_free_list_start = first_suitable->next;
     *block_size = size_of_new_block;
   }
@@ -146,75 +126,63 @@ void *mymalloc(long numbytes)
 }
 
 struct free_blocks find_free_blocks(void *firstbyte,
-                                    struct mem_control_block *current)
-{
+                                    struct mem_control_block *current) {
   struct free_blocks blocks = {NULL, NULL};
   // if there are no free blocks, return NULL
-  if (current == NULL)
-  {
+  if (current == NULL) {
     return blocks;
   }
   // if current is the previous free block, return that
   else if ((void *)current < firstbyte &&
-           (current->next == NULL || firstbyte < (void *)current->next))
-  {
+           (current->next == NULL || firstbyte < (void *)current->next)) {
     blocks.prev = current;
     blocks.next = current->next;
     return blocks;
   }
   // if there is no previous free block
-  else if (firstbyte < (void *)current)
-  {
+  else if (firstbyte < (void *)current) {
     blocks.prev = NULL;
     blocks.next = current;
     return blocks;
   }
   // if there are many preceding free blocks, keep iterating
-  else
-  {
+  else {
     return find_free_blocks(firstbyte, current->next);
   }
 }
 
-int free_block_exists_before(struct free_blocks blocks)
-{
+int free_block_exists_before(struct free_blocks blocks) {
   return blocks.prev != NULL;
 }
 
-int free_block_exists_after(struct free_blocks blocks)
-{
+int free_block_exists_after(struct free_blocks blocks) {
   return blocks.next != NULL;
 }
 
-int free_blocks_exist(struct free_blocks blocks)
-{
+int free_blocks_exist(struct free_blocks blocks) {
   return free_block_exists_before(blocks) || free_block_exists_after(blocks);
 }
 
 int is_previous_free_block_adjacent(struct free_blocks blocks,
-                                    unsigned short *size_of_block)
-{
+                                    long *size_of_block) {
   void *last_address_of_prev = (void *)blocks.prev + blocks.prev->size;
   return last_address_of_prev == size_of_block;
 }
 
 int is_next_free_block_adjacent(struct free_blocks blocks,
-                                unsigned short *size_of_block)
-{
+                                long *size_of_block) {
   return blocks.next == (void *)size_of_block + *size_of_block;
 }
 
-void merge_consecutive_blocks(unsigned short *size_of_block,
+void merge_consecutive_blocks(long *size_of_block,
                               struct free_blocks blocks,
-                              struct mem_control_block *m)
-{
+                              struct mem_control_block *m) {
   m->size = *size_of_block + blocks.next->size;
   m->next = blocks.next->next;
 }
 
-void myfree(void *firstbyte)
-{
-  unsigned short *size_of_block = (unsigned short *)(firstbyte - 2);
+void myfree(void *firstbyte) {
+  long *size_of_block = (long *)(firstbyte - sizeof(long));
 
   struct free_blocks blocks = find_free_blocks(firstbyte, free_list_start);
 
@@ -222,24 +190,19 @@ void myfree(void *firstbyte)
   struct mem_control_block *m = (struct mem_control_block *)size_of_block;
 
   // there are no free blocks
-  if (!free_blocks_exist(blocks))
-  {
+  if (!free_blocks_exist(blocks)) {
     m->size = *size_of_block;
     m->next = NULL;
 
     free_list_start = m;
   }
   // there is no free block before the block we want to free
-  else if (!free_block_exists_before(blocks))
-  {
+  else if (!free_block_exists_before(blocks)) {
     // check if there's a free block immediately after
-    if (is_next_free_block_adjacent(blocks, size_of_block))
-    {
+    if (is_next_free_block_adjacent(blocks, size_of_block)) {
       // merge the two blocks
       merge_consecutive_blocks(size_of_block, blocks, m);
-    }
-    else
-    {
+    } else {
       m->size = *size_of_block;
       m->next = blocks.next;
     }
@@ -247,49 +210,40 @@ void myfree(void *firstbyte)
     free_list_start = m;
   }
   // there is no free block after the block we want to free
-  else if (!free_block_exists_after(blocks))
-  {
+  else if (!free_block_exists_after(blocks)) {
     // check if there's a free block immediately before
-    if (is_previous_free_block_adjacent(blocks, size_of_block))
-    {
+    if (is_previous_free_block_adjacent(blocks, size_of_block)) {
       // add size of freed block to preceding free block
       blocks.prev->size = blocks.prev->size + *size_of_block;
-    }
-    else
-    {
+    } else {
       m->size = *size_of_block;
       m->next = NULL;
 
       blocks.prev->next = m;
     }
   }
-  // there are at least one free block before and after the block we want to
-  // free
-  else
-  {
+  /* there are at least one free block before and after the 
+  * block we want to free */
+  else {
     // check if there's a free block immediately on both sides
     if (is_previous_free_block_adjacent(blocks, size_of_block) &&
-        is_next_free_block_adjacent(blocks, size_of_block))
-    {
+        is_next_free_block_adjacent(blocks, size_of_block)) {
       // add freed block and succeeding free block to preceding free block
       blocks.prev->size =
           blocks.prev->size + *size_of_block + blocks.next->size;
       blocks.prev->next = blocks.next->next;
     }
     // check if there's a free block immediately after
-    else if (is_next_free_block_adjacent(blocks, size_of_block))
-    {
+    else if (is_next_free_block_adjacent(blocks, size_of_block)) {
       merge_consecutive_blocks(size_of_block, blocks, m);
       blocks.prev->next = m;
     }
     // check if there's a free block immediately before
-    else if (is_previous_free_block_adjacent(blocks, size_of_block))
-    {
+    else if (is_previous_free_block_adjacent(blocks, size_of_block)) {
       blocks.prev->size = blocks.prev->size + *size_of_block;
     }
     // no block on either side that needs merging
-    else
-    {
+    else {
       m->size = *size_of_block;
       m->next = blocks.next;
 
@@ -299,33 +253,25 @@ void myfree(void *firstbyte)
 }
 
 // for debugging
-void print_free_list(struct mem_control_block *current)
-{
-  if (current == NULL)
-  {
+void print_free_list(struct mem_control_block *current) {
+  if (current == NULL) {
     printf("\nEnd of free list\n");
-  }
-  else
-  {
+  } else {
     printf("\nFree block address: %p, size: %d, next: %p", current,
            current->size, current->next);
     print_free_list(current->next);
   }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   /* ------------------------------------------ */
   /* Rounding tests*/
   printf("ROUNDING FOR MEMORY ALIGNMENT:\n");
 
-  printf("Rounds values below 14 to 16: ");
-  if (calc_rounded(1) == 16 && calc_rounded(14) == 16)
-  {
+  printf("Rounds values below 8 to 16: ");
+  if (calc_rounded(1) == 16 && calc_rounded(8) == 16) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -333,12 +279,9 @@ int main(int argc, char **argv)
   /* ------------------------------------------ */
 
   printf("Rounds values above 14 to the next multiple of 8: ");
-  if (calc_rounded(15) == 24 && calc_rounded(40) == 48)
-  {
+  if (calc_rounded(15) == 24 && calc_rounded(40) == 48) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -350,12 +293,9 @@ int main(int argc, char **argv)
   void *result = mymalloc(0);
 
   printf("Returns NULL if asked to allocate 0 bytes: ");
-  if (result == NULL)
-  {
+  if (result == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -364,12 +304,9 @@ int main(int argc, char **argv)
 
   printf("When nothing is allocated, the first mem_control_block has length "
          "64*1024 minus the first mem_control_block: ");
-  if (free_list_start->size == MEM_SIZE)
-  {
+  if (free_list_start->size == MEM_SIZE) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -382,12 +319,9 @@ int main(int argc, char **argv)
   long numbytes = 40;
   result = mymalloc(numbytes);
 
-  if (free_list_start->size == MEM_SIZE - calc_rounded(numbytes))
-  {
+  if (free_list_start->size == MEM_SIZE - calc_rounded(numbytes)) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -395,14 +329,11 @@ int main(int argc, char **argv)
   /* ------------------------------------------ */
 
   printf("When one block is allocated, mymalloc returns managed_memory_start + "
-         "sizeof(short): ");
+         "sizeof(long): ");
 
-  if (result == managed_memory_start + sizeof(short))
-  {
+  if (result == managed_memory_start + sizeof(long)) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -412,52 +343,36 @@ int main(int argc, char **argv)
   printf("When one block is allocated, the free block struct is located after "
          "the allocated block: ");
 
-  if (free_list_start == managed_memory_start + calc_rounded(numbytes))
-  {
+  if (free_list_start == managed_memory_start + calc_rounded(numbytes)) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
 
   /* ------------------------------------------ */
 
-  printf("Sets the first 2 bytes of the allocated block to the size of the "
+  printf("Sets the first 8 bytes of the allocated block to the size of the "
          "block: ");
 
-  unsigned short *block_size = managed_memory_start;
-  if (*block_size == calc_rounded(numbytes))
-  {
+  long *block_size = managed_memory_start;
+  if (*block_size == calc_rounded(numbytes)) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
 
   /* ------------------------------------------ */
 
-  /* A short is big enough to store the size of our memory,
-   * so it makes sense to use a short to store the length of a block
-   * to save space.
-   * That means we have to check if the long we send in is too big to
-   * fit in a short or too big to allocate, even if we used all available
-   * memory */
-  printf("Returns NULL if it receives a long that is larger than max short - 2 "
-         "bytes: ");
+  printf("Returns NULL if we try to allocate more than the memory holds: ");
 
   long numbytes2 = 64 * 1024 - 1;
   result = mymalloc(numbytes2);
 
-  if (result == NULL)
-  {
+  if (result == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO %p\n", result);
     exit(EXIT_FAILURE);
   }
@@ -466,16 +381,13 @@ int main(int argc, char **argv)
 
   printf("Can allocate a block that takes all remaining memory: ");
 
-  long numbytes3 = MEM_SIZE - calc_rounded(numbytes) - sizeof(short);
+  long numbytes3 = MEM_SIZE - calc_rounded(numbytes) - sizeof(long);
   result = mymalloc(numbytes3);
 
-  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes) &&
-      free_list_start == NULL)
-  {
+  if (result == managed_memory_start + sizeof(long) + calc_rounded(numbytes) &&
+      free_list_start == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -487,16 +399,13 @@ int main(int argc, char **argv)
 
   mymalloc_init(); // reset state
   mymalloc(numbytes);
-  long numbytes4 = MEM_SIZE - calc_rounded(numbytes) - sizeof(short) - 15;
+  long numbytes4 = MEM_SIZE - calc_rounded(numbytes) - sizeof(long) - 15;
   result = mymalloc(numbytes4);
 
-  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes) &&
-      free_list_start == NULL)
-  {
+  if (result == managed_memory_start + sizeof(long) + calc_rounded(numbytes) &&
+      free_list_start == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -507,15 +416,12 @@ int main(int argc, char **argv)
 
   mymalloc_init();
   result = mymalloc(1);
-  void *result2 = mymalloc(14);
+  void *result2 = mymalloc(7);
 
-  if (result2 == managed_memory_start + 16 + sizeof(short) &&
-      (void *)free_list_start == managed_memory_start + 32)
-  {
+  if (result2 == managed_memory_start + 16 + sizeof(long) &&
+      (void *)free_list_start == managed_memory_start + 32) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -529,12 +435,9 @@ int main(int argc, char **argv)
   long numbytes5 = 64;
   result = mymalloc(numbytes5);
 
-  if (result == managed_memory_start + sizeof(short) + calc_rounded(numbytes))
-  {
+  if (result == managed_memory_start + sizeof(long) + calc_rounded(numbytes)) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -549,12 +452,9 @@ int main(int argc, char **argv)
   struct free_blocks first_suitable_result =
       find_suitable_block(40, NULL, free_list_start);
   if ((void *)first_suitable_result.next == free_list_start &&
-      (void *)first_suitable_result.prev == NULL)
-  {
+      (void *)first_suitable_result.prev == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -569,12 +469,9 @@ int main(int argc, char **argv)
   first_suitable_result = find_suitable_block(100, NULL, free_list_start);
 
   if ((void *)first_suitable_result.next == NULL &&
-      (void *)first_suitable_result.prev == NULL)
-  {
+      (void *)first_suitable_result.prev == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -595,13 +492,10 @@ int main(int argc, char **argv)
 
   first_suitable_result = find_suitable_block(49, NULL, free_list_start);
 
-  if ((void *)first_suitable_result.next == result3 + 54 &&
-      (void *)first_suitable_result.prev == result2 - 2)
-  {
+  if ((void *)first_suitable_result.next == result3 + 56 &&
+      (void *)first_suitable_result.prev == result2 - 8) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -619,13 +513,11 @@ int main(int argc, char **argv)
 
   myfree(result);
 
-  if (result - sizeof(short) == free_list_start)
-  {
+  if (result - sizeof(long) == free_list_start) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
+    printf("%p, %p\n", free_list_start, result);
     exit(EXIT_FAILURE);
   }
 
@@ -638,12 +530,9 @@ int main(int argc, char **argv)
   result = mymalloc(20);
   myfree(result);
 
-  if (result - sizeof(short) == free_list_start)
-  {
+  if (result - sizeof(long) == free_list_start) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -656,16 +545,13 @@ int main(int argc, char **argv)
   mymalloc(numbytes);
   void *first_to_free = mymalloc(20);
   void *second_to_free = mymalloc(30);
-  mymalloc(MEM_SIZE - numbytes - 50 - 4 * sizeof(short));
+  mymalloc(MEM_SIZE - numbytes - 50 - 4 * sizeof(long));
   myfree(first_to_free);
   myfree(second_to_free);
 
-  if (first_to_free - sizeof(short) == free_list_start)
-  {
+  if (first_to_free - sizeof(long) == free_list_start) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -679,18 +565,15 @@ int main(int argc, char **argv)
   first_to_free = mymalloc(20);
   void *third_to_free = mymalloc(30);
   second_to_free = mymalloc(20);
-  mymalloc(MEM_SIZE - 110 - 4 * sizeof(short));
+  mymalloc(MEM_SIZE - 110 - 4 * sizeof(long));
   myfree(first_to_free);
   myfree(second_to_free);
   myfree(third_to_free);
 
-  if (first_to_free - sizeof(short) == free_list_start &&
-      free_list_start->next == NULL)
-  {
+  if (first_to_free - sizeof(long) == free_list_start &&
+      free_list_start->next == NULL) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -710,15 +593,12 @@ int main(int argc, char **argv)
 
   myfree(block_to_free);
 
-  result = mymalloc(23);
+  result = mymalloc(25);
 
-  if (result == managed_memory_start + 104 + sizeof(short) &&
-      (void *)free_list_start < result)
-  {
+  if (result == managed_memory_start + 120 + sizeof(long) &&
+      (void *)free_list_start < result) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
@@ -737,16 +617,11 @@ int main(int argc, char **argv)
 
   result = mymalloc(20);
 
-  if (result == managed_memory_start + 48 + sizeof(short) &&
-      result < (void *)free_list_start)
-  {
+  if (result == managed_memory_start + 48 + sizeof(long) &&
+      result < (void *)free_list_start) {
     printf("YES\n");
-  }
-  else
-  {
+  } else {
     printf("NO\n");
     exit(EXIT_FAILURE);
   }
-
-  /* ------------------------------------------ */
 }
