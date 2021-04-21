@@ -1,0 +1,27 @@
+b. Unnamed pipes:
+
+- What is the largest block size supported on your system?
+The largest block size supported on our systems is approximately 10^10 bytes (10 GB).
+Any larger than this and the fork will fail, because there is no more memory to allocate.
+This makes sense, since the code is running on a machine with 32GB RAM and loads of other programs running simultaneously.
+When checking fcntl(pipe_fd[0], 1032) we get 65536.
+
+- What is the highest bandwidth you can achieve and at which block size is this bandwidth achieved?
+The highest bandwidth we achieved was 5,075,210,000 bytes per second with a block size of 10,000 bytes.
+CPU cache size on this machine is 32,768 bytes and the bandwidth seems to decrease when we set a block size that is larger
+than this.
+
+- Does the bandwidth change when you start several instances of your program at the same time?
+Yes, the bandwidth is significantly lower per instance when we start several instances at the same time.
+The combined bandwidth is higher, though.
+
+d. Named pipes:
+
+- What is the largest block size supported on your system?
+We get the same results as in b. When checking fcntl(named_pipe, 1032) we get 65536.
+
+- What is the highest bandwidth you can achieve and at which block size is this bandwidth achieved?
+The highest bandwidth we achieved was 4,090,460,000 bytes per second with a block size of 10,000 bytes.
+
+- Does the bandwidth change when you start several instances of your program at the same time?
+Same result as b.
