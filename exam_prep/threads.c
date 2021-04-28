@@ -6,38 +6,46 @@
 
 pthread_t tid[2];
 
+// example function for use in thread
 void *doSomeThing(void *arg) {
   unsigned long i = 0;
   pthread_t id = pthread_self();
 
   if (pthread_equal(id, tid[0])) {
-    printf("\n First thread processing\n");
+    puts("First thread processing");
   } else {
-    printf("\n Second thread processing\n");
+    puts("Second thread processing");
   }
 
   for (i = 0; i < (0xFFFFFFFF); i++) {
     // time consuming loop that does nothing
   };
 
+  if (pthread_equal(id, tid[0])) {
+    puts("First thread finished");
+  } else {
+    puts("Second thread finished");
+  }
+
   return NULL;
 }
 
-int main(void) {
-  int i = 0;
-  int err;
-
-  while (i < 2) {
-    err = pthread_create(&(tid[i]), NULL, &doSomeThing, NULL);
-    if (err != 0)
-      printf("\ncan't create thread :[%s]", strerror(err));
+// example thread creation and wait for threads
+int sleep_example(void) {
+  for (int i = 0; i < 2; i++) {
+    int error = pthread_create(&(tid[i]), NULL, &doSomeThing, NULL);
+    if (error != 0)
+      printf("Can't create thread :[%s]\n", strerror(error));
     else
-      printf("\n Thread created successfully\n");
-
-    i++;
+      printf("Thread created successfully: %lu\n", tid[i]);
   }
-  puts("When does this print?");
+
+  puts("Main goes to sleep");
 
   sleep(5);
+
+  puts("Main done sleeping");
   return 0;
 }
+
+int main(void) { sleep_example(); }
