@@ -9,7 +9,6 @@ int global1, global2;
 
 // example function for use in thread
 void *doSomeThing(void *arg) {
-  unsigned long i = 0;
   pthread_t id = pthread_self();
 
   if (pthread_equal(id, tid[0])) {
@@ -18,7 +17,7 @@ void *doSomeThing(void *arg) {
     puts("Second thread processing");
   }
 
-  for (i = 0; i < (0xFFFFFFFF); i++) {
+  for (unsigned long i = 0; i < (0xFFFFFFFF); i++) {
     // time consuming loop that does nothing
   };
 
